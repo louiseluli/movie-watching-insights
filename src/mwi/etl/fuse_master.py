@@ -105,9 +105,9 @@ def _load_watchlist_csv(path: Path) -> pl.DataFrame:
             .then(pl.lit(None))
             .otherwise(
                 pl.col("genres")
-                .cast(pl.Utf8, strict=False)          # ensure string
+                .cast(pl.Utf8, strict=False)
                 .str.split(",")
-                .arr.eval(pl.element().str.strip_chars())
+                .list.eval(pl.element().str.strip_chars())    # <-- use .list.eval
             )
             .alias("genres_list"),
 
@@ -115,11 +115,12 @@ def _load_watchlist_csv(path: Path) -> pl.DataFrame:
             .then(pl.lit(None))
             .otherwise(
                 pl.col("directors")
-                .cast(pl.Utf8, strict=False)          # ensure string
+                .cast(pl.Utf8, strict=False)
                 .str.split(",")
-                .arr.eval(pl.element().str.strip_chars())
+                .list.eval(pl.element().str.strip_chars())    # <-- use .list.eval
             )
             .alias("directors_list_wl"),
+
         ]
     )
 
@@ -153,10 +154,11 @@ def _read_imdb_parquets(parquet_dir: Path) -> Dict[str, pl.LazyFrame]:
                 pl.col("directors")
                 .cast(pl.Utf8, strict=False)
                 .str.split(",")
-                .arr.eval(pl.element().str.strip_chars())
+                .list.eval(pl.element().str.strip_chars()) # <-- use .list.eval
             )
             .alias("directors_list")
         )
+
     )
 
 
