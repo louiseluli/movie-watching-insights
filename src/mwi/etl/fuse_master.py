@@ -101,13 +101,24 @@ def _load_watchlist_csv(path: Path) -> pl.DataFrame:
             pl.col("const").alias("tconst"),
             pl.col("year").cast(pl.Int32, strict=False) if "year" in df.columns else pl.lit(None).cast(pl.Int32).alias("year"),
             pl.col("runtime_mins").cast(pl.Int32, strict=False) if "runtime_mins" in df.columns else pl.lit(None).cast(pl.Int32).alias("runtime_mins"),
-            pl.when(pl.col("genres").is_null() | ~pl.col("genres").is_utf8())
+            pl.when(pl.col("genres").is_null())
             .then(pl.lit(None))
-            .otherwise(pl.col("genres").str.split(",").arr.eval(pl.element().str.strip_chars()))
+            .otherwise(
+                pl.col("genres")
+                .cast(pl.Utf8, strict=False)          # ensure string
+                .str.split(",")
+                .arr.eval(pl.element().str.strip_chars())
+            )
             .alias("genres_list"),
-            pl.when(pl.col("directors").is_null() | ~pl.col("directors").is_utf8())
+
+            pl.when(pl.col("directors").is_null())
             .then(pl.lit(None))
-            .otherwise(pl.col("directors").str.split(",").arr.eval(pl.element().str.strip_chars()))
+            .otherwise(
+                pl.col("directors")
+                .cast(pl.Utf8, strict=False)          # ensure string
+                .str.split(",")
+                .arr.eval(pl.element().str.strip_chars())
+            )
             .alias("directors_list_wl"),
         ]
     )
@@ -147,6 +158,7 @@ def _read_imdb_parquets(parquet_dir: Path) -> Dict[str, pl.LazyFrame]:
             .alias("directors_list")
         )
     )
+
 
     names = pl.scan_parquet(parquet_dir / "name.basics.parquet").select(
         "nconst", "primaryName"
