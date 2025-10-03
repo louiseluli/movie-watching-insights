@@ -1,0 +1,78 @@
+# ─────────────────────────────────────────────────────────────
+# Movie Watching Insights (MWI) — Loose (un-pinned) requirements
+# Strategy:
+#   1) Develop against latest compatible libs (no pins here).
+#   2) Once stable on your machine, create a pinned requirements.txt
+#      with:  pip-compile requirements.in  (we’ll add this step later).
+#   3) Teams/CI install from the pinned requirements.txt for reproducibility.
+# ─────────────────────────────────────────────────────────────
+
+############################
+# Core & Data Engineering  #
+############################
+pandas
+numpy
+pyarrow
+polars
+duckdb
+python-dotenv
+pydantic
+typer[all]
+loguru
+rich
+tqdm
+
+############################
+# Storage / ORM (optional) #
+############################
+sqlalchemy
+sqlmodel
+
+############################
+# Web & HTTP Clients       #
+############################
+requests
+httpx
+tenacity
+
+############################
+# Parsing / Scraping       #
+############################
+beautifulsoup4
+lxml
+
+############################
+# Fuzzy Matching / Utils   #
+############################
+rapidfuzz
+python-slugify
+
+############################
+# Visualization            #
+############################
+matplotlib
+seaborn
+plotly
+kaleido     # enable static image export for Plotly
+
+############################
+# Dashboards               #
+############################
+dash
+streamlit
+
+############################
+# Graphs / Networks        #
+############################
+networkx
+
+############################
+# ML (for clustering etc.) #
+############################
+scikit-learn
+
+############################
+# Notebooks (optional)     #
+############################
+jupyter
+ipykernel
