@@ -132,30 +132,20 @@ def _read_imdb_parquets(parquet_dir: Path) -> Dict[str, pl.LazyFrame]:
         "tconst", "averageRating", "numVotes"
     )
 
-    crew = pl.scan_parquet(parquet_dir / "title.crew.parquet").select(
-        "tconst", "directors", "writers"
-    ).with_columns(
-        [
-        pl.when(pl.col("genres").is_null())
-        .then(pl.lit(None))
-        .otherwise(
-            pl.col("genres")
-            .cast(pl.Utf8, strict=False)               # tolerate non-strings
-            .str.split(",")
-            .arr.eval(pl.element().str.strip_chars())
+    crew = (
+        pl.scan_parquet(parquet_dir / "title.crew.parquet")
+        .select("tconst", "directors", "writers")
+        .with_columns(
+            pl.when(pl.col("directors").is_null())
+            .then(pl.lit(None))
+            .otherwise(
+                pl.col("directors")
+                .cast(pl.Utf8, strict=False)
+                .str.split(",")
+                .arr.eval(pl.element().str.strip_chars())
+            )
+            .alias("directors_list")
         )
-        .alias("genres_list"),
-
-        pl.when(pl.col("directors").is_null())
-        .then(pl.lit(None))
-        .otherwise(
-            pl.col("directors")
-            .cast(pl.Utf8, strict=False)
-            .str.split(",")
-            .arr.eval(pl.element().str.strip_chars())
-        )
-        .alias("directors_list_wl"),
-        ]
     )
 
     names = pl.scan_parquet(parquet_dir / "name.basics.parquet").select(
