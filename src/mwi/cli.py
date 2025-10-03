@@ -88,13 +88,29 @@ def doctor():
 @etl_app.command("imdb-dump")
 def etl_imdb_dump():
     """
-    Load IMDb non-commercial TSVs into fast columnar formats (parquet)
-    and/or a local DuckDB cache. This is a stub; implementation next.
+    Load IMDb non-commercial TSVs into Parquet and a DuckDB cache.
+    Usage:
+        python -m mwi.cli etl imdb-dump
     """
+    from .etl.imdb_dump import load_all_imdb  # local import to speed CLI startup
+
     cfg = get_config()
-    with Timer("etl_imdb_dump"):
-        print_kv_table("IMDb TSV Targets", {k: v for k, v in cfg.imdb_tsv_paths().items()})
-        logger.info("This is a stub. Next step: implement src/mwi/etl/imdb_dump.py")
+    parquet_dir = Path(cfg.processed_dir) / "imdb"
+    duckdb_file = Path(cfg.cache_dir) / "imdb.duckdb"
+
+    print_kv_table("IMDb ETL Outputs", {
+        "parquet_dir": parquet_dir,
+        "duckdb_file": duckdb_file,
+    })
+
+    with Timer("etl::imdb_dump_all"):
+        counts = load_all_imdb(
+            dump_dir=cfg.imdb_dump_dir,
+            out_parquet_dir=parquet_dir,
+            duckdb_path=duckdb_file,
+        )
+    logger.success("IMDb ingest complete: {}", counts)
+
 
 
 @etl_app.command("fuse-master")
