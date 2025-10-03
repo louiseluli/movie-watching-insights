@@ -116,12 +116,15 @@ def etl_imdb_dump():
 @etl_app.command("fuse-master")
 def etl_fuse_master():
     """
-    Merge your IMDb exports with the IMDb TSVs and cached API enrichments
-    into one canonical table. (Implemented after imdb-dump.)
+    Merge your watchlist CSV (treated as 'watched') with IMDb Parquet dumps
+    into a canonical master table ready for enrichment.
     """
-    cfg = get_config()
-    with Timer("etl_fuse_master"):
-        logger.info("This is a stub. We’ll implement fuse_master after imdb_dump.")
+    from .etl.fuse_master import fuse_watchlist_with_imdb
+
+    with Timer("etl::fuse_master"):
+        out = fuse_watchlist_with_imdb()
+    logger.success("Fuse complete → {}", out)
+
 
 
 # ---------- Features (stub) ----------
