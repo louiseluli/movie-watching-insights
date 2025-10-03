@@ -83,29 +83,18 @@ def _output_parquet_path(logical_name: str, out_dir: Path) -> Path:
 
 def _clean_frame(logical_name: str, df: pl.DataFrame) -> pl.DataFrame:
     """
-    Light canonicalization shared across IMDb tables:
-      - Replace '\\N' with null
-      - Coerce some columns to numeric where appropriate
-      - Normalize list-like columns to arrays where useful (keep string for joins)
+    Canonicalize per-table:
+      - NOTE: we already pass null_values=["\\N"] to read_csv, so \N is None.
+      - Coerce numeric-like fields.
+      - Add list columns where helpful.
     """
-    df = df.with_columns(
-        [
-            # standard: IMDb denotes null as \N
-            *[
-                pl.when(pl.col(c) == r"\N").then(None).otherwise(pl.col(c)).alias(c)
-                for c in df.columns
-            ]
-        ]
-    )
-
     if logical_name == "title.basics":
         df = df.with_columns(
             [
                 pl.col("isAdult").cast(pl.Int8).alias("isAdult"),
-                pl.col("startYear").str.replace_all(r"\\N", None).cast(pl.Int32, strict=False),
-                pl.col("endYear").str.replace_all(r"\\N", None).cast(pl.Int32, strict=False),
-                pl.col("runtimeMinutes").str.replace_all(r"\\N", None).cast(pl.Int64, strict=False),
-                # genres: keep as string; we’ll also provide a list version
+                pl.col("startYear").cast(pl.Int32, strict=False),
+                pl.col("endYear").cast(pl.Int32, strict=False),
+                pl.col("runtimeMinutes").cast(pl.Int64, strict=False),
                 pl.when(pl.col("genres").is_null())
                 .then(pl.lit(None))
                 .otherwise(pl.col("genres").str.split(","))
@@ -113,23 +102,19 @@ def _clean_frame(logical_name: str, df: pl.DataFrame) -> pl.DataFrame:
             ]
         )
 
-    if logical_name == "title.episode":
+    elif logical_name == "title.episode":
         df = df.with_columns(
             [
-                pl.col("seasonNumber").str.replace_all(r"\\N", None).cast(pl.Int32, strict=False),
-                pl.col("episodeNumber").str.replace_all(r"\\N", None).cast(pl.Int32, strict=False),
+                pl.col("seasonNumber").cast(pl.Int32, strict=False),
+                pl.col("episodeNumber").cast(pl.Int32, strict=False),
             ]
         )
 
-    if logical_name == "title.principals":
-        # characters sometimes like '["Name"]' — keep as raw string; parsing later
-        pass
-
-    if logical_name == "name.basics":
+    elif logical_name == "name.basics":
         df = df.with_columns(
             [
-                pl.col("birthYear").str.replace_all(r"\\N", None).cast(pl.Int32, strict=False),
-                pl.col("deathYear").str.replace_all(r"\\N", None).cast(pl.Int32, strict=False),
+                pl.col("birthYear").cast(pl.Int32, strict=False),
+                pl.col("deathYear").cast(pl.Int32, strict=False),
                 pl.when(pl.col("primaryProfession").is_null())
                 .then(pl.lit(None))
                 .otherwise(pl.col("primaryProfession").str.split(","))
@@ -141,7 +126,9 @@ def _clean_frame(logical_name: str, df: pl.DataFrame) -> pl.DataFrame:
             ]
         )
 
+    # other tables: no extra normalization needed for now
     return df
+
 
 
 def _read_imdb_tsv(path: Path, schema: Dict[str, pl.DataType]) -> pl.DataFrame:
