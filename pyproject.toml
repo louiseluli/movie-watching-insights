@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mwi"
+description = "Movie Watching Insights — ETL + Enrichment + Interactive Analytics for personal movie-watching trends."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Non-Commercial — see data source licenses inside README" }
+authors = [{ name = "Louise Ferreira" }]
+keywords = ["movies", "imdb", "analytics", "dash", "streamlit", "plotly", "seaborn", "matplotlib"]
+# We’ll keep dependencies in requirements.in for now; no pins here.
+dynamic = ["version"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = { attr = "mwi.__version__" }
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+exclude = '''
+/(
+  \.venv
+ |\.git
+ |data
+ |build
+ |dist
+ |notebooks
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+skip = ["data", ".venv", "build", "dist"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = [
+  "E", "F", "I",  # pyflakes/pycodestyle/imports
+  "UP",           # pyupgrade
+  "B",            # bugbear
+]
+ignore = [
+  "E501",  # long lines — we use black wrapping
+]
+exclude = ["data", ".venv", "build", "dist", "notebooks"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mwi"]
+
+# We’ll add entry points after we introduce the Typer CLI (cli.py).
+# [project.scripts]
+# mwi = "mwi.cli:app"
