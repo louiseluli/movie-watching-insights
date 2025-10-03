@@ -82,12 +82,13 @@ def _output_parquet_path(logical_name: str, out_dir: Path) -> Path:
 
 
 def _clean_frame(logical_name: str, df: pl.DataFrame) -> pl.DataFrame:
-    """
+    r"""
     Canonicalize per-table:
-      - NOTE: we already pass null_values=["\\N"] to read_csv, so \N is None.
+      - NOTE: we already pass null_values=["\\N"] to read_csv, so '\\N' is treated as None.
       - Coerce numeric-like fields.
       - Add list columns where helpful.
     """
+
     if logical_name == "title.basics":
         df = df.with_columns(
             [
