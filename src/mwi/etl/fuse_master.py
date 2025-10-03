@@ -19,67 +19,103 @@ def _paths() -> Tuple[Path, Path]:
 
 def _load_watchlist_csv(path: Path) -> pl.DataFrame:
     """
-    Load the user's IMDb export (watchlist CSV). In your case this is
-    effectively your **watched** list (no self-ratings required).
-    We normalize a minimal set of columns and keep the rest if present.
+    Load the user's IMDb export (watchlist CSV). Your file is Title-Case (Const, Position, ...).
+    We normalize headers to snake_case so the rest of the pipeline uses stable names.
     """
-    # The sample you shared has these columns; we select a stable subset and keep extras if present
+    # 1) Read as-is (Polars will infer sensible dtypes; we'll coerce later)
     df = pl.read_csv(
         path,
-        infer_schema_length=2000,
+        infer_schema_length=5000,
         try_parse_dates=True,
-        ignore_errors=False,
         null_values=["", "NaN", "nan", "NULL"],
     )
 
-    # Ensure 'const' exists (ttXXXX). This becomes our key 'tconst'.
+    # 2) Build a robust header normalizer (case-insensitive, strip, snake_case)
+    def norm(col: str) -> str:
+        c = col.strip()
+        # common unicode apostrophes etc.
+        c = c.replace("’", "'")
+        c = c.lower()
+        # replace non-alnum with underscores
+        import re
+        c = re.sub(r"[^a-z0-9]+", "_", c).strip("_")
+        # specific fixes from IMDb export
+        if c in {"imdb_rating", "i_m_d_b_rating"}:
+            return "imdb_rating"
+        if c in {"runtime_mins", "runtime_mins_"}:
+            return "runtime_mins"
+        if c in {"release_date"}:
+            return "release_date"
+        if c in {"original_title"}:
+            return "original_title"
+        if c in {"title_type"}:
+            return "title_type"
+        if c in {"num_votes"}:
+            return "num_votes"
+        if c in {"date_rated"}:
+            return "date_rated"
+        return c
+
+    # 3) Special header synonyms map (exact IMDb column names → canonical)
+    header_map = {
+        "position": "position",
+        "const": "const",
+        "created": "created",
+        "modified": "modified",
+        "title": "title",
+        "original_title": "original_title",
+        "url": "url",
+        "title_type": "title_type",
+        "imdb_rating": "imdb_rating",
+        "runtime_mins": "runtime_mins",      # "Runtime (mins)"
+        "year": "year",
+        "genres": "genres",
+        "num_votes": "num_votes",
+        "release_date": "release_date",
+        "directors": "directors",
+        "your_rating": "your_rating",
+        "date_rated": "date_rated",
+        "description": "description",
+    }
+
+    # 4) Apply normalization + mapping
+    raw_cols = df.columns
+    normalized = [norm(c) for c in raw_cols]
+    canonical = [header_map.get(c, c) for c in normalized]
+    if len(set(canonical)) != len(canonical):
+        # avoid collisions silently; if it ever happens, warn
+        logger.warning("Header collision after normalization: {}", canonical)
+    df = df.rename(dict(zip(raw_cols, canonical)))
+
+    # 5) Validate presence of key column
     if "const" not in df.columns:
-        raise ValueError("Watchlist CSV is missing required column 'const' (IMDb tconst).")
+        # help message with preview of columns to diagnose quickly
+        raise ValueError(
+            "Watchlist CSV must contain an IMDb id column (Const). "
+            f"Found columns: {', '.join(df.columns)}"
+        )
 
-    # Normalize a few expected columns; keep any others (like url, created, modified)
-    wanted = [
-        "position",
-        "const",
-        "title",
-        "original_title",
-        "url",
-        "title_type",
-        "imdb_rating",
-        "runtime_mins",
-        "year",
-        "genres",
-        "num_votes",
-        "release_date",
-        "directors",
-        "your_rating",
-        "date_rated",
-        "created",
-        "modified",
-        "description",
-    ]
-    keep = [c for c in wanted if c in df.columns]
-    df = df.select([pl.all().exclude(keep), *[pl.col(c) for c in keep]]).select(keep)
-
-    # Canonical types + helper lists, null-safe (no map_elements)
+    # 6) Canonical types + helper lists, null-safe
     df = df.with_columns(
         [
             pl.col("const").alias("tconst"),
-            pl.col("year").cast(pl.Int32, strict=False),
-            pl.col("runtime_mins").cast(pl.Int32, strict=False),
-            pl.when(pl.col("genres").is_null())
+            pl.col("year").cast(pl.Int32, strict=False) if "year" in df.columns else pl.lit(None).cast(pl.Int32).alias("year"),
+            pl.col("runtime_mins").cast(pl.Int32, strict=False) if "runtime_mins" in df.columns else pl.lit(None).cast(pl.Int32).alias("runtime_mins"),
+            pl.when(pl.col("genres").is_null() | ~pl.col("genres").is_utf8())
             .then(pl.lit(None))
             .otherwise(pl.col("genres").str.split(",").arr.eval(pl.element().str.strip_chars()))
             .alias("genres_list"),
-            pl.when(pl.col("directors").is_null())
+            pl.when(pl.col("directors").is_null() | ~pl.col("directors").is_utf8())
             .then(pl.lit(None))
             .otherwise(pl.col("directors").str.split(",").arr.eval(pl.element().str.strip_chars()))
             .alias("directors_list_wl"),
         ]
     )
 
-    # Ensure unique by tconst; if duplicates exist, keep first (stable)
+    # 7) Ensure unique by tconst
     df = df.unique(subset=["tconst"], keep="first")
     return df
+
 
 
 def _read_imdb_parquets(parquet_dir: Path) -> Dict[str, pl.LazyFrame]:
